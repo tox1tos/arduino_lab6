@@ -1,0 +1,129 @@
+const byte segPins[8] = {12, 11, 10, 9, 8, 7, 6, 5};
+const byte digitPins[3] = {4, 2, 3};
+const byte unusedDigitPin = 13;
+
+const byte digits[10][8] = {
+  {1,1,1,1,1,0,1,0}, // 0
+  {0,0,1,0,0,0,1,0}, // 1
+  {1,0,1,1,1,0,0,1}, // 2
+  {1,0,1,0,1,0,1,1}, // 3
+  {0,1,1,0,0,0,1,1}, // 4
+  {1,1,0,0,1,0,1,1}, // 5
+  {1,1,0,1,1,0,1,1}, // 6
+  {1,0,1,0,0,0,1,0}, // 7
+  {1,1,1,1,1,0,1,1}, // 8
+  {1,1,1,0,1,0,1,1}  // 9
+};
+
+byte shown[3] = {0, 0, 0};
+char input[3];
+byte inputLength = 0;
+bool invalidInput = false;
+
+byte currentDigit = 0;
+unsigned long lastRefresh = 0;
+
+void resetInput() {
+  inputLength = 0;
+  invalidInput = false;
+}
+
+void resetDisplay() {
+  shown[0] = shown[1] = shown[2] = 0;
+  resetInput();
+  Serial.println(F("Reset: 000"));
+}
+
+void acceptInput() {
+  if (invalidInput || inputLength == 0) {
+    Serial.println(F("Error: enter 1 to 3 digits"));
+  } else {
+    shown[0] = shown[1] = shown[2] = 0;
+
+    for (byte i = 0; i < inputLength; i++) {
+      shown[3 - inputLength + i] = input[i] - '0';
+    }
+
+    Serial.print(F("Displayed: "));
+    for (byte i = 0; i < 3; i++) {
+      Serial.print(shown[i]);
+    }
+    Serial.println();
+  }
+
+  resetInput();
+}
+
+void readSerial() {
+  while (Serial.available() > 0) {
+    char c = Serial.read();
+
+    if (c == 'R' || c == 'r') {
+      resetDisplay();
+    }
+    else if (c == '\n' || c == '\r') {
+      if (inputLength > 0 || invalidInput) {
+        acceptInput();
+      }
+    }
+    else if (c >= '0' && c <= '9') {
+      if (!invalidInput && inputLength < 3) {
+        input[inputLength++] = c;
+      } else {
+        invalidInput = true;
+      }
+    }
+    else {
+      invalidInput = true;
+    }
+  }
+}
+
+void refreshDisplay() {
+  unsigned long now = micros();
+
+  if ((unsigned long)(now - lastRefresh) < 2000UL)
+    return;
+
+  lastRefresh = now;
+  for (byte i = 0; i < 3; i++) {
+    digitalWrite(digitPins[i], LOW);
+  }
+  digitalWrite(unusedDigitPin, LOW);
+
+  byte number = shown[currentDigit];
+
+  for (byte i = 0; i < 8; i++) {
+    digitalWrite(segPins[i],
+      digits[number][i] ? HIGH : LOW);
+  }
+
+  digitalWrite(digitPins[currentDigit], HIGH);
+
+  currentDigit = (currentDigit + 1) % 3;
+}
+
+void setup() {
+  for (byte i = 0; i < 3; i++) {
+    digitalWrite(digitPins[i], LOW);
+    pinMode(digitPins[i], OUTPUT);
+  }
+
+  digitalWrite(unusedDigitPin, LOW);
+  pinMode(unusedDigitPin, OUTPUT);
+
+  for (byte i = 0; i < 8; i++) {
+    digitalWrite(segPins[i], LOW);
+    pinMode(segPins[i], OUTPUT);
+  }
+
+  Serial.begin(9600);
+  Serial.println("Enter number 0..999");
+  Serial.println("R = reset");
+  Serial.println("Displayed: 000");
+}
+
+void loop() {
+  refreshDisplay();
+  readSerial();
+}
