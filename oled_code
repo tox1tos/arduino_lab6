@@ -1,0 +1,30 @@
+#include <GyverOLED.h>
+GyverOLED<SSD1306_128x64, OLED_NO_BUFFER> oled;
+
+void setup() {
+   Serial.begin(9600);
+   Serial.setTimeout(50);
+
+   oled.init(0x3D);  
+   oled.clear();        
+   oled.setScale(1);    
+   oled.home();         
+   oled.print("Жду текст");
+ }
+
+ void loop() {
+   if (Serial.available() > 0) {
+     String text = Serial.readStringUntil('\n');
+     text.trim(); 
+
+     if (text.length() > 0) {
+       oled.clear();         
+       oled.setScale(2);     
+       oled.setCursor(0, 3); 
+       oled.print(text);     
+
+       Serial.print("Выведено: ");
+       Serial.println(text);
+     }
+   }
+ }
